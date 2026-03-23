@@ -1,6 +1,6 @@
 {
 	"name": "n8n-nodes-pdf-lib",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "Edit PDF files in n8n workflows using pdf-lib (merge, extract pages, rotate pages).",
 	"license": "MIT",
 	"homepage": "https://github.com/anjuba1017/n8n-nodes-pdf-lib",
