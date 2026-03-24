@@ -1,4 +1,5 @@
-import { degrees, PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { degrees, PDFDocument, StandardFonts, rgb, PDFTextField, PDFCheckBox, PDFDropdown, PDFRadioGroup } from 'pdf-lib';
+import * as pdfLibModule from 'pdf-lib';
 import type {
 	IExecuteFunctions,
 	INodeExecutionData,
@@ -173,7 +174,7 @@ export class PdfLib implements INodeType {
 		group: ['transform'],
 		version: [1],
 		description:
-			'Edit PDFs in n8n using pdf-lib (merge, extract, rotate, remove pages, add text, pipeline)',
+			'Edit PDFs in n8n using pdf-lib (merge, extract, rotate, remove pages, add text, fill form, custom code, pipeline)',
 		defaults: {
 			name: 'PDF Lib',
 		},
@@ -193,10 +194,22 @@ export class PdfLib implements INodeType {
 						action: 'Add text to PDF',
 					},
 					{
+						name: 'Custom Code',
+						value: 'customCode',
+						description: 'Execute custom javascript code on the PDF',
+						action: 'Execute custom code on PDF',
+					},
+					{
 						name: 'Extract Pages',
 						value: 'extractPages',
 						description: 'Create a new PDF with selected pages',
 						action: 'Extract selected pages from PDF',
+					},
+					{
+						name: 'Fill Form',
+						value: 'fillForm',
+						description: 'Fill out fillable fields in the PDF',
+						action: 'Fill form fields in PDF',
 					},
 					{
 						name: 'Merge Binary PDFs',
@@ -254,7 +267,15 @@ export class PdfLib implements INodeType {
 				description: 'Binary property containing the source PDF',
 				displayOptions: {
 					show: {
-						operation: ['extractPages', 'rotatePages', 'removePages', 'addText', 'pipeline'],
+						operation: [
+							'addText',
+							'customCode',
+							'extractPages',
+							'fillForm',
+							'pipeline',
+							'removePages',
+							'rotatePages',
+						],
 					},
 				},
 			},
@@ -315,6 +336,59 @@ export class PdfLib implements INodeType {
 						operation: ['addText'],
 					},
 				},
+			},
+			{
+				displayName: 'Code',
+				name: 'customCode',
+				type: 'string',
+				typeOptions: {
+					alwaysOpenEditWindow: true,
+					editor: 'jsEditor',
+				},
+				default: '// The document is available as "pdfDoc"\n// The pdf-lib module is available as "pdfLib"\n// Example:\n// const pages = pdfDoc.getPages();\n// pages[0].drawText("Hello World!", { x: 50, y: 50 });',
+				description: 'Custom JavaScript code to manipulate the PDF Document',
+				displayOptions: {
+					show: {
+						operation: ['customCode'],
+					},
+				},
+			},
+			{
+				displayName: 'Form Fields',
+				name: 'formFields',
+				type: 'fixedCollection',
+				typeOptions: {
+					multipleValues: true,
+				},
+				default: {},
+				description: 'The fields to fill in the PDF',
+				displayOptions: {
+					show: {
+						operation: ['fillForm'],
+					},
+				},
+				options: [
+					{
+						name: 'fields',
+						displayName: 'Field',
+						values: [
+							{
+								displayName: 'Field Name',
+								name: 'name',
+								type: 'string',
+								default: '',
+								description: 'Name of the form field',
+							},
+							{
+								displayName: 'Field Value',
+								name: 'value',
+								type: 'string',
+								default: '',
+								description: 'Value to fill in the form field. For checkboxes use "true" or "false".',
+							},
+						],
+					},
+				],
 			},
 			{
 				displayName: 'Text',
@@ -738,6 +812,97 @@ export class PdfLib implements INodeType {
 						operation: 'addText',
 						text,
 						modifiedPages,
+					};
+				} else if (operation === 'fillForm') {
+					const inputBinaryPropertyName = this.getNodeParameter(
+						'inputBinaryPropertyName',
+						i,
+						'data',
+					) as string;
+
+					if (!item.binary?.[inputBinaryPropertyName]) {
+						throw new NodeOperationError(
+							this.getNode(),
+							`Binary property "${inputBinaryPropertyName}" was not found`,
+							{ itemIndex: i },
+						);
+					}
+
+					const formFieldsRaw = this.getNodeParameter('formFields', i, {}) as {
+						fields?: Array<{ name: string; value: string }>;
+					};
+					const fieldsToFill = formFieldsRaw.fields ?? [];
+
+					const sourceBuffer = await this.helpers.getBinaryDataBuffer(i, inputBinaryPropertyName);
+					const pdfDoc = await PDFDocument.load(sourceBuffer);
+					const form = pdfDoc.getForm();
+					let filledCount = 0;
+
+					for (const field of fieldsToFill) {
+						const pdfField = form.getField(field.name);
+						if (pdfField) {
+							if (pdfField instanceof PDFTextField) {
+								pdfField.setText(field.value);
+								filledCount++;
+							} else if (pdfField instanceof PDFCheckBox) {
+								if (field.value.toLowerCase() === 'true' || field.value === '1') {
+									pdfField.check();
+								} else {
+									pdfField.uncheck();
+								}
+								filledCount++;
+							} else if (pdfField instanceof PDFDropdown) {
+								pdfField.select(field.value);
+								filledCount++;
+							} else if (pdfField instanceof PDFRadioGroup) {
+								pdfField.select(field.value);
+								filledCount++;
+							}
+						}
+					}
+
+					outputBuffer = Buffer.from(await pdfDoc.save());
+					outputFileName = `form-filled-${Date.now()}.pdf`;
+					operationMeta = {
+						operation: 'fillForm',
+						fieldsFilled: filledCount,
+					};
+				} else if (operation === 'customCode') {
+					const inputBinaryPropertyName = this.getNodeParameter(
+						'inputBinaryPropertyName',
+						i,
+						'data',
+					) as string;
+
+					const customCode = this.getNodeParameter('customCode', i, '') as string;
+
+					if (!item.binary?.[inputBinaryPropertyName]) {
+						throw new NodeOperationError(
+							this.getNode(),
+							`Binary property "${inputBinaryPropertyName}" was not found`,
+							{ itemIndex: i },
+						);
+					}
+
+					const sourceBuffer = await this.helpers.getBinaryDataBuffer(i, inputBinaryPropertyName);
+					const pdfDoc = await PDFDocument.load(sourceBuffer);
+
+					try {
+						const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+						const runCustomCode = new AsyncFunction('pdfDoc', 'pdfLib', customCode);
+						await runCustomCode(pdfDoc, pdfLibModule);
+					} catch (codeError) {
+						throw new NodeOperationError(
+							this.getNode(),
+							`Error in custom code: ${(codeError as Error).message}`,
+							{ itemIndex: i },
+						);
+					}
+
+					outputBuffer = Buffer.from(await pdfDoc.save());
+					outputFileName = `custom-code-${Date.now()}.pdf`;
+					operationMeta = {
+						operation: 'customCode',
 					};
 				} else if (operation === 'pipeline') {
 					const inputBinaryPropertyName = this.getNodeParameter(

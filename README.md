@@ -9,6 +9,8 @@ Edit PDF files in n8n workflows using `pdf-lib`, with no external API and no sys
 - **Rotate Pages**: Rotate all pages or selected pages by 90/180/270 degrees.
 - **Remove Pages**: Remove selected pages from a PDF.
 - **Add Text**: Draw text on all pages or selected pages.
+- **Fill Form**: Fill out fillable fields in the PDF.
+- **Custom Code**: Execute custom javascript code on the PDF.
 - **Pipeline**: Apply multiple actions in sequence in one node.
 - **Runs locally**: Pure JavaScript library (`pdf-lib`) inside your n8n instance.
 
@@ -52,7 +54,21 @@ Edit PDF files in n8n workflows using `pdf-lib`, with no external API and no sys
   - `Pages To Add Text`: optional range (leave empty for all pages)
 - Output: new PDF with text added
 
-### 6) Pipeline
+### 6) Fill Form
+
+- Input: one source PDF binary property
+- Parameters:
+  - `Form Fields`: list of field names and values to fill
+- Output: new PDF with form fields filled
+
+### 7) Custom Code
+
+- Input: one source PDF binary property
+- Parameters:
+  - `Code`: JavaScript code to manipulate the `pdfDoc` object using `pdfLib`
+- Output: manipulated PDF
+
+### 8) Pipeline
 
 - Input: one source PDF binary property
 - Parameters:
