@@ -345,7 +345,7 @@ export class PdfLib implements INodeType {
 					alwaysOpenEditWindow: true,
 					editor: 'jsEditor',
 				},
-				default: '// The document is available as "pdfDoc"\n// The pdf-lib module is available as "pdfLib"\n// Example:\n// const pages = pdfDoc.getPages();\n// pages[0].drawText("Hello World!", { x: 50, y: 50 });',
+				default: '// The document is available as "pdfDoc"\n// The pdf-lib module is available as "pdfLib"\n// The current input item is available as "item"\n// Example:\n// const pages = pdfDoc.getPages();\n// pages[0].drawText(item.json.myText || "Hello", { x: 50, y: 50 });',
 				description: 'Custom JavaScript code to manipulate the PDF Document',
 				displayOptions: {
 					show: {
@@ -889,8 +889,8 @@ export class PdfLib implements INodeType {
 
 					try {
 						const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-						const runCustomCode = new AsyncFunction('pdfDoc', 'pdfLib', customCode);
-						await runCustomCode(pdfDoc, pdfLibModule);
+						const runCustomCode = new AsyncFunction('pdfDoc', 'pdfLib', 'item', customCode);
+						await runCustomCode(pdfDoc, pdfLibModule, item);
 					} catch (codeError) {
 						throw new NodeOperationError(
 							this.getNode(),
