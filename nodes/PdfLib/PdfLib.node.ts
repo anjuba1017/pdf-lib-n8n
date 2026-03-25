@@ -345,7 +345,7 @@ export class PdfLib implements INodeType {
 					alwaysOpenEditWindow: true,
 					editor: 'jsEditor',
 				},
-				default: '// The document is available as "pdfDoc"\n// The pdf-lib module is available as "pdfLib"\n// The current input item is available as "item"\n// Example:\n// const pages = pdfDoc.getPages();\n// pages[0].drawText(item.json.myText || "Hello", { x: 50, y: 50 });',
+				default: '// The document is available as "pdfDoc"\n// The pdf-lib module is available as "pdfLib"\n// The current input item is available as "item"\n// Mutate pdfDoc, or return a new PDFDocument — returned docs are saved as output\n// n8n helpers like $input and $() are not available here\n// Example:\n// const pages = pdfDoc.getPages();\n// pages[0].drawText(item.json.myText || "Hello", { x: 50, y: 50 });',
 				description: 'Custom JavaScript code to manipulate the PDF Document',
 				displayOptions: {
 					show: {
@@ -890,7 +890,19 @@ export class PdfLib implements INodeType {
 					try {
 						const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 						const runCustomCode = new AsyncFunction('pdfDoc', 'pdfLib', 'item', customCode);
-						await runCustomCode(pdfDoc, pdfLibModule, item);
+						const customReturn = await runCustomCode(pdfDoc, pdfLibModule, item);
+						if (customReturn instanceof Uint8Array) {
+							outputBuffer = Buffer.from(customReturn);
+						} else if (Buffer.isBuffer(customReturn)) {
+							outputBuffer = customReturn;
+						} else if (
+							customReturn &&
+							typeof (customReturn as PDFDocument).save === 'function'
+						) {
+							outputBuffer = Buffer.from(await (customReturn as PDFDocument).save());
+						} else {
+							outputBuffer = Buffer.from(await pdfDoc.save());
+						}
 					} catch (codeError) {
 						throw new NodeOperationError(
 							this.getNode(),
@@ -898,8 +910,6 @@ export class PdfLib implements INodeType {
 							{ itemIndex: i },
 						);
 					}
-
-					outputBuffer = Buffer.from(await pdfDoc.save());
 					outputFileName = `custom-code-${Date.now()}.pdf`;
 					operationMeta = {
 						operation: 'customCode',
