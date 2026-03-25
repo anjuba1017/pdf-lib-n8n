@@ -653,7 +653,7 @@ export class PdfLib implements INodeType {
 						}
 
 						const sourceBuffer = await this.helpers.getBinaryDataBuffer(i, propertyName);
-						const sourcePdf = await PDFDocument.load(sourceBuffer);
+						const sourcePdf = await PDFDocument.load(sourceBuffer, { ignoreEncryption: true });
 						const pageIndices = sourcePdf.getPageIndices();
 						const copiedPages = await mergedPdf.copyPages(sourcePdf, pageIndices);
 
@@ -689,7 +689,7 @@ export class PdfLib implements INodeType {
 					}
 
 					const sourceBuffer = await this.helpers.getBinaryDataBuffer(i, inputBinaryPropertyName);
-					const sourcePdf = await PDFDocument.load(sourceBuffer);
+					const sourcePdf = await PDFDocument.load(sourceBuffer, { ignoreEncryption: true });
 					const pageIndices = parsePageRange(pageRange, sourcePdf.getPageCount());
 
 					const outputPdf = await PDFDocument.create();
@@ -723,7 +723,7 @@ export class PdfLib implements INodeType {
 					}
 
 					const sourceBuffer = await this.helpers.getBinaryDataBuffer(i, inputBinaryPropertyName);
-					const pdfDoc = await PDFDocument.load(sourceBuffer);
+					const pdfDoc = await PDFDocument.load(sourceBuffer, { ignoreEncryption: true });
 					const allPages = pdfDoc.getPages();
 					const indicesToRotate =
 						rotatePageRange.trim().length > 0
@@ -760,7 +760,7 @@ export class PdfLib implements INodeType {
 					}
 
 					const sourceBuffer = await this.helpers.getBinaryDataBuffer(i, inputBinaryPropertyName);
-					const sourcePdf = await PDFDocument.load(sourceBuffer);
+					const sourcePdf = await PDFDocument.load(sourceBuffer, { ignoreEncryption: true });
 					const result = await applyRemovePagesAction(sourcePdf, pageRange);
 
 					outputBuffer = Buffer.from(await result.updatedDoc.save());
@@ -794,7 +794,7 @@ export class PdfLib implements INodeType {
 					}
 
 					const sourceBuffer = await this.helpers.getBinaryDataBuffer(i, inputBinaryPropertyName);
-					const pdfDoc = await PDFDocument.load(sourceBuffer);
+					const pdfDoc = await PDFDocument.load(sourceBuffer, { ignoreEncryption: true });
 					const modifiedPages = await applyAddTextAction(pdfDoc, {
 						text,
 						x: textX,
@@ -834,7 +834,7 @@ export class PdfLib implements INodeType {
 					const fieldsToFill = formFieldsRaw.fields ?? [];
 
 					const sourceBuffer = await this.helpers.getBinaryDataBuffer(i, inputBinaryPropertyName);
-					const pdfDoc = await PDFDocument.load(sourceBuffer);
+					const pdfDoc = await PDFDocument.load(sourceBuffer, { ignoreEncryption: true });
 					const form = pdfDoc.getForm();
 					let filledCount = 0;
 
@@ -885,7 +885,7 @@ export class PdfLib implements INodeType {
 					}
 
 					const sourceBuffer = await this.helpers.getBinaryDataBuffer(i, inputBinaryPropertyName);
-					const pdfDoc = await PDFDocument.load(sourceBuffer);
+					const pdfDoc = await PDFDocument.load(sourceBuffer, { ignoreEncryption: true });
 
 					try {
 						const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
